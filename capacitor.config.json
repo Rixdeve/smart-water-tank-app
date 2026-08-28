@@ -1,0 +1,5 @@
+{
+  "appId": "com.example.app",
+  "appName": "smart-water-app",
+  "webDir": "dist"
+}
