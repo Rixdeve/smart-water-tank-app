@@ -1,4 +1,3 @@
-/* ---------- Design tokens (Material 3 palette from the AquaGuard mockups) ---------- */
 :root {
   --primary: #006591;
   --on-primary: #ffffff;
@@ -61,7 +60,6 @@ body {
 }
 .icon-fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
 
-/* ---------- App shell ---------- */
 .app {
   max-width: 480px;
   margin: 0 auto;
@@ -130,7 +128,6 @@ body {
 .nav-item .material-symbols-outlined { font-size: 22px; }
 .nav-item span:last-child { font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.05em; }
 
-/* ---------- Typography helpers ---------- */
 .metric-xl { font-size: 48px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; }
 .metric-lg { font-size: 32px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
 .headline-md { font-size: 20px; line-height: 28px; font-weight: 600; }
@@ -141,7 +138,6 @@ body {
   letter-spacing: 0.05em; text-transform: uppercase; color: var(--outline);
 }
 
-/* ---------- Cards ---------- */
 .card {
   background: var(--surface-container-lowest);
   border-radius: var(--radius-xl);
@@ -152,7 +148,6 @@ body {
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
 
-/* ---------- Badges ---------- */
 .badge {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 4px 12px; border-radius: var(--radius-full);
@@ -164,14 +159,12 @@ body {
 .badge-error { background: var(--error-container); color: var(--on-error-container); }
 .badge-neutral { background: var(--surface-container-high); color: var(--on-surface-variant); }
 
-/* ---------- Progress bars ---------- */
 .progress-track {
   height: 8px; width: 100%; background: var(--surface-container-high);
   border-radius: var(--radius-full); overflow: hidden;
 }
 .progress-fill { height: 100%; border-radius: var(--radius-full); transition: width 0.6s ease; }
 
-/* ---------- Toggle switch ---------- */
 .toggle { position: relative; display: inline-flex; width: 52px; height: 30px; cursor: pointer; }
 .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
 .toggle-track {
@@ -190,7 +183,6 @@ body {
 .toggle.sm input:checked + .toggle-track::after { transform: translateX(18px); }
 .toggle.sm input:checked + .toggle-track { background: var(--secondary); }
 
-/* ---------- Buttons ---------- */
 .btn-primary {
   width: 100%; border: none; border-radius: var(--radius-xl);
   padding: 16px; font-weight: 700; font-size: 15px;
@@ -209,13 +201,11 @@ body {
 }
 .btn-secondary:active { transform: scale(0.97); }
 
-/* ---------- Icon circles ---------- */
 .icon-circle {
   width: 44px; height: 44px; border-radius: var(--radius-full);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 
-/* ---------- Alert banner ---------- */
 .alert-banner {
   background: var(--error-container); color: var(--on-error-container);
   border-radius: var(--radius-xl); padding: var(--space-md);
@@ -224,7 +214,6 @@ body {
 }
 .alert-banner .icon-circle { background: var(--error); color: #fff; width: 40px; height: 40px; }
 
-/* ---------- Status banner (success / error / info feedback) ---------- */
 .status-banner {
   display: flex; align-items: center; gap: var(--space-sm);
   border-radius: var(--radius-lg); padding: var(--space-md);
@@ -234,7 +223,6 @@ body {
 .status-banner.error   { background: var(--error-container); color: var(--on-error-container); border: 1px solid rgba(186, 26, 26, 0.15); }
 .status-banner.info    { background: var(--surface-container-low); color: var(--on-surface-variant); border: 1px solid var(--outline-variant); }
 
-/* ---------- Back button + step list (Device Setup) ---------- */
 .back-btn {
   display: flex; align-items: center; gap: 4px; border: none; background: none;
   cursor: pointer; color: var(--primary); font-weight: 700; font-size: 13px; padding: 4px 0;
@@ -247,11 +235,11 @@ body {
   font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center;
 }
 
-/* ---------- Dashboard: overhead water tank visual ---------- */
 .tank-visual {
-  display: flex; flex-direction: column; align-items: center;
-  padding: var(--space-sm) 0;
+  display: flex; flex-direction: row; align-items: center; justify-content: center;
+  gap: 22px; padding: var(--space-sm) 0;
 }
+.tank-stack { display: flex; flex-direction: column; align-items: center; }
 .tank-lid {
   position: relative;
   width: 116px; height: 18px; border-radius: 50%;
@@ -300,14 +288,46 @@ body {
   width: 96px; height: 6px; border-radius: var(--radius);
   background: var(--surface-container-highest);
 }
-.tank-visual::after {
+.tank-stack::after {
   content: "";
   width: 10px; height: 9px; margin-top: 2px;
   background: var(--surface-container-highest);
   border-radius: 0 0 3px 3px;
 }
 
-/* ---------- Quality: pH gauge ---------- */
+.pipe-stack {
+  display: flex; flex-direction: column; justify-content: space-between;
+  height: 168px; padding: 8px 0;
+}
+.pipe-group { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pipe-row { display: flex; align-items: center; gap: 3px; }
+.pipe {
+  width: 40px; height: 10px; border-radius: var(--radius-full);
+  background: var(--surface-container-highest);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+.pipe.active {
+  background-image: repeating-linear-gradient(90deg, var(--primary) 0 8px, var(--primary-container) 8px 16px);
+  background-size: 16px 100%;
+  animation: pipe-flow 0.5s linear infinite;
+}
+.pipe-out.active { animation-direction: reverse; }
+@keyframes pipe-flow {
+  from { background-position: 0 0; }
+  to { background-position: 16px 0; }
+}
+.pipe-arrow-icon {
+  font-size: 15px !important; color: var(--outline-variant);
+  transition: color 0.2s;
+}
+.pipe-arrow-icon.active { color: var(--primary); }
+.pipe-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--outline); transition: color 0.2s;
+}
+.pipe-label.active { color: var(--primary); }
+
 .gauge-track {
   position: relative; height: 12px; width: 100%; border-radius: var(--radius-full);
   background: linear-gradient(90deg, var(--tertiary-container) 0%, var(--primary) 25%, var(--primary) 75%, var(--error) 100%);
@@ -325,7 +345,6 @@ body {
 }
 .gauge-labels { display: flex; justify-content: space-between; padding: 0 2px; }
 
-/* ---------- Analytics: period selector ---------- */
 .period-tabs {
   display: flex; background: var(--surface-container); border-radius: var(--radius-full);
   padding: 4px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
@@ -341,7 +360,6 @@ body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
 }
 
-/* ---------- Forecast: hero gradient ---------- */
 .hero-gradient {
   background: linear-gradient(135deg, #006591 0%, #0ea5e9 100%);
   color: #fff; border-radius: var(--radius-xl); padding: var(--space-lg);
@@ -351,7 +369,6 @@ body {
   position: absolute; top: 8px; right: 8px; opacity: 0.12; font-size: 96px;
 }
 
-/* ---------- Settings: text inputs ---------- */
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field label { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; color: var(--on-surface-variant); }
 .field input[type="number"],
@@ -378,7 +395,6 @@ body {
   display: flex; align-items: flex-start; gap: var(--space-md);
 }
 
-/* ---------- Misc ---------- */
 .row { display: flex; justify-content: space-between; align-items: center; }
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

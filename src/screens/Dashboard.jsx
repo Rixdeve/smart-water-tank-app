@@ -1,19 +1,37 @@
 import { useState, useEffect } from "react";
 import { useLiveSensorData } from "../hooks/useLiveSensorData";
+import { useAppSettings } from "../hooks/useAppSettings";
 import LiveBadge from "../components/LiveBadge";
+import ErrorState, { LoadingState } from "../components/ErrorState";
+
+const OVERFLOW_RISK_PCT = 95;
 
 export default function Dashboard() {
-  const { data: d, isLive, liveData } = useLiveSensorData();
+  const { data: d, isLive, error, loading } = useLiveSensorData();
+  const { lowWaterThreshold, notifications } = useAppSettings();
 
-  const [pump, setPump] = useState(d.pumpStatus === "ON");
-  const [auto, setAuto] = useState(d.pumpAutoMode);
+  const [pump, setPump] = useState(false);
+  const [auto, setAuto] = useState(false);
 
-  // Keep the pump toggle in sync with real device state once live data arrives
   useEffect(() => {
-    if (liveData) setPump(liveData.pumpStatus === "ON");
-  }, [liveData]);
+    if (d) { setPump(d.pumpStatus === "ON"); setAuto(d.pumpAutoMode); }
+  }, [d]);
+
+  if (loading) return <LoadingState label="Connecting to device…" />;
+  if (!d) {
+    return (
+      <>
+        <div className="row">
+          <span className="label-caps">Dashboard</span>
+          <LiveBadge isLive={isLive} />
+        </div>
+        <ErrorState message={error} />
+      </>
+    );
+  }
 
   const pct = d.tankLevelPct * 100;
+  const outflowActive = d.todayUsage > 0;
   const level =
     d.tankLevelPct > 0.6 ? "high" : d.tankLevelPct > 0.3 ? "medium" : "low";
 
@@ -25,7 +43,6 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* Hero tank card */}
       <section className="card" style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
         <div className="row" style={{ alignItems: "flex-start" }}>
           <div>
@@ -37,24 +54,42 @@ export default function Dashboard() {
         </div>
 
         <div className="tank-visual">
-          <div className="tank-lid" />
-          <div className="tank-body">
-            <div className="tank-fill" style={{ height: `${pct}%`, background: levelTheme.fill }} />
+          <div className="tank-stack">
+            <div className="tank-lid" />
+            <div className="tank-body">
+              <div className="tank-fill" style={{ height: `${pct}%`, background: levelTheme.fill }} />
+            </div>
+            <div className="tank-stand" />
+            <div className="tank-stand-base" />
           </div>
-          <div className="tank-stand" />
-          <div className="tank-stand-base" />
+
+          <div className="pipe-stack">
+            <div className="pipe-group">
+              <div className="pipe-row">
+                <span className={`material-symbols-outlined pipe-arrow-icon ${pump ? "active" : ""}`}>arrow_back</span>
+                <div className={`pipe pipe-in ${pump ? "active" : ""}`} />
+              </div>
+              <span className={`pipe-label ${pump ? "active" : ""}`}>Inflow</span>
+            </div>
+            <div className="pipe-group">
+              <div className="pipe-row">
+                <div className={`pipe pipe-out ${outflowActive ? "active" : ""}`} />
+                <span className={`material-symbols-outlined pipe-arrow-icon ${outflowActive ? "active" : ""}`}>arrow_forward</span>
+              </div>
+              <span className={`pipe-label ${outflowActive ? "active" : ""}`}>Outflow</span>
+            </div>
+          </div>
         </div>
 
         <div className="row">
           <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--on-surface-variant)" }}>
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>history</span>
-            <span className="helper-text">{isLive ? "Live now" : "Awaiting device"}</span>
+            <span className="helper-text">Live now</span>
           </div>
           <LiveBadge isLive={isLive} />
         </div>
       </section>
 
-      {/* Pump control */}
       <section className="card">
         <div className="row">
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
@@ -77,9 +112,7 @@ export default function Dashboard() {
         <div className="row" style={{ marginTop: "var(--space-md)", padding: "var(--space-md)", background: "var(--surface-container-low)", borderRadius: "var(--radius-lg)" }}>
           <div>
             <div className="body-md" style={{ fontWeight: 600 }}>Auto-Mode</div>
-            <div className="helper-text">
-              {isLive ? "Edge logic runs on ESP32" : "Optimal flow management"}
-            </div>
+            <div className="helper-text">Edge logic runs on ESP32</div>
           </div>
           <label className="toggle sm">
             <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
@@ -88,7 +121,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* System health */}
       <section className="card">
         <div className="label-caps" style={{ marginBottom: "var(--space-md)" }}>System Health</div>
         <div className="grid-2">
@@ -97,19 +129,42 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {pct < 30 && (
+      {pct < lowWaterThreshold && notifications.tankLow && (
         <section className="alert-banner">
           <div className="icon-circle"><span className="material-symbols-outlined">priority_high</span></div>
           <div>
             <div className="body-md" style={{ fontWeight: 700 }}>Low Water Level Detected</div>
             <div className="helper-text" style={{ color: "inherit", opacity: 0.85 }}>
-              Consider turning the pump ON to refill the tank.
+              Below the {lowWaterThreshold}% threshold set in Settings - consider turning the pump ON to refill the tank.
             </div>
           </div>
         </section>
       )}
 
-      {/* Bento stats */}
+      {pct >= OVERFLOW_RISK_PCT && notifications.overflowRisk && (
+        <section className="alert-banner">
+          <div className="icon-circle"><span className="material-symbols-outlined">waves</span></div>
+          <div>
+            <div className="body-md" style={{ fontWeight: 700 }}>Overflow Risk</div>
+            <div className="helper-text" style={{ color: "inherit", opacity: 0.85 }}>
+              Tank is at {pct.toFixed(0)}% capacity. Consider turning the pump OFF.
+            </div>
+          </div>
+        </section>
+      )}
+
+      {auto && !pump && pct < lowWaterThreshold && notifications.pumpFailure && (
+        <section className="alert-banner">
+          <div className="icon-circle"><span className="material-symbols-outlined">build</span></div>
+          <div>
+            <div className="body-md" style={{ fontWeight: 700 }}>Pump Failure</div>
+            <div className="helper-text" style={{ color: "inherit", opacity: 0.85 }}>
+              Auto-mode is on and the tank is low, but the pump isn't running. Check that it's responding.
+            </div>
+          </div>
+        </section>
+      )}
+
       <div className="grid-2">
         <div className="card card-sm" style={{ display: "flex", flexDirection: "column" }}>
           <div className="label-caps">Daily Usage</div>

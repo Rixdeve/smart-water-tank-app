@@ -38,23 +38,46 @@ export const USER_SETTINGS = {
   },
 };
 
-export const API = "http://127.0.0.1:8000";
+export const API = "https://smart-water-tank-api.onrender.com";
 
 export async function fetchLiveSensorData() {
+  let res;
   try {
-    const res = await fetch(`${API}/latest`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    const data = await res.json();
-    if (!data || data.status === "no data yet") return null;
-
-    const levelPct = data.tank_level_pct / 100;
-    const tankStatus =
-      levelPct > 0.6 ? "Full" : levelPct > 0.3 ? "Medium" : "Low";
-
+    res = await fetch(`${API}/latest`, { signal: AbortSignal.timeout(5000) });
+  } catch (e) {
     return {
+      ok: false,
+      error: e.name === "TimeoutError" || e.name === "AbortError"
+        ? "Connection to the backend timed out."
+        : "Could not reach the backend server.",
+    };
+  }
+
+  if (!res.ok) return { ok: false, error: `Backend responded with an error (${res.status}).` };
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, error: "Backend sent a response that couldn't be read." };
+  }
+
+  if (!data || data.status === "no data yet") {
+    return { ok: false, error: "No sensor readings received from the device yet." };
+  }
+  if (typeof data.tank_level_pct !== "number" || typeof data.total_litres !== "number") {
+    return { ok: false, error: "Backend sent incomplete sensor data." };
+  }
+
+  const levelPct = data.tank_level_pct / 100;
+  const tankStatus =
+    levelPct > 0.6 ? "Full" : levelPct > 0.3 ? "Medium" : "Low";
+
+  return {
+    ok: true,
+    data: {
       tankLevelPct: levelPct,
-      currentLiters: data.total_litres ?? SENSOR_DATA.currentLiters,
+      currentLiters: data.total_litres,
       tankStatus,
       pumpStatus: data.pump_status ? "ON" : "OFF",
       phValue: data.ph_value,
@@ -67,24 +90,35 @@ export async function fetchLiveSensorData() {
       sensorConnected: data.device_online,
       sensorError: data.sensor_error,
       calibrationRequired: data.calibration_required,
-      todayUsage: data.flow_rate ?? SENSOR_DATA.todayUsage,
-    };
-  } catch {
-    return null; // API unreachable or timed out
-  }
+      todayUsage: data.flow_rate ?? 0,
+    },
+  };
 }
 
-// Fetches raw historical readings (many per day) from the backend/database
-// for the Analytics charts. Returns [] if unreachable, so the caller can
-// fall back to hardcoded sample data.
 export async function fetchHistory(limit = 500) {
+  let res;
   try {
-    const res = await fetch(`${API}/history?limit=${limit}`, {
-      signal: AbortSignal.timeout(4000),
-    });
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
-  } catch {
-    return [];
+    res = await fetch(`${API}/history?limit=${limit}`, { signal: AbortSignal.timeout(5000) });
+  } catch (e) {
+    return {
+      ok: false,
+      error: e.name === "TimeoutError" || e.name === "AbortError"
+        ? "Connection to the backend timed out."
+        : "Could not reach the backend server.",
+    };
   }
+
+  if (!res.ok) return { ok: false, error: `Backend responded with an error (${res.status}).` };
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, error: "Backend sent a response that couldn't be read." };
+  }
+
+  if (!Array.isArray(data) || data.length === 0) {
+    return { ok: false, error: "No historical readings recorded yet." };
+  }
+  return { ok: true, rows: data };
 }

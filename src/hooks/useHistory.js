@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchHistory } from "../data/hardcoded";
 
-// The ESP32 uploads a reading every 5 seconds, but Analytics wants one
-// total-per-day figure. total_litres is a running counter, so the day's
-// usage is the max value seen that day.
 function groupByDay(rows) {
   const byDay = {};
   rows.forEach((r) => {
@@ -27,25 +24,25 @@ function groupByMonth(rows) {
   return Object.entries(byMonth).map(([label, liters]) => ({ label, liters: Math.round(liters) }));
 }
 
-// Polls the backend/database for historical readings and groups them into
-// daily/monthly totals for the Analytics charts. isLive is true only once
-// real rows have come back, so the caller can fall back to sample data.
 export function useHistory() {
   const [rows, setRows] = useState([]);
-  const [isLive, setIsLive] = useState(false);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     const poll = async () => {
-      const data = await fetchHistory(500);
+      const result = await fetchHistory(500);
       if (cancelled) return;
-      if (data.length > 0) {
-        setRows(data);
-        setIsLive(true);
+      if (result.ok) {
+        setRows(result.rows);
+        setError(null);
       } else {
-        setIsLive(false);
+        setRows([]);
+        setError(result.error);
       }
+      setLoading(false);
     };
 
     poll();
@@ -56,5 +53,5 @@ export function useHistory() {
     };
   }, []);
 
-  return { daily: groupByDay(rows), monthly: groupByMonth(rows), isLive };
+  return { daily: groupByDay(rows), monthly: groupByMonth(rows), isLive: rows.length > 0, error, loading };
 }

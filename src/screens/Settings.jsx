@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { USER_SETTINGS } from "../data/hardcoded";
+import { USER_SETTINGS, API } from "../data/hardcoded";
+import { useAppSettings, saveAppSettings } from "../hooks/useAppSettings";
 
 const notifItems = [
   { key: "tankFull",         label: "Tank Full",          desc: "Notify when tank reaches capacity", icon: "water_full" },
@@ -10,26 +11,45 @@ const notifItems = [
 ];
 
 export default function Settings({ onNavigate }) {
+  const appSettings = useAppSettings();
+
   const [capacity, setCapacity]   = useState(USER_SETTINGS.tankCapacity);
-  const [lowThresh, setLowThresh] = useState(USER_SETTINGS.lowWaterThreshold);
-  const [phMin, setPhMin]         = useState(USER_SETTINGS.phThreshold.min);
-  const [phMax, setPhMax]         = useState(USER_SETTINGS.phThreshold.max);
-  const [notif, setNotif]         = useState(USER_SETTINGS.notifications);
+  const [lowThresh, setLowThresh] = useState(appSettings.lowWaterThreshold);
+  const [phMin, setPhMin]         = useState(appSettings.phThreshold.min);
+  const [phMax, setPhMax]         = useState(appSettings.phThreshold.max);
+  const [notif, setNotif]         = useState(appSettings.notifications);
   const [saved, setSaved]         = useState(false);
 
-  const [deviceIp, setDeviceIp]     = useState(() => localStorage.getItem("deviceIp") || "");
+  const [deviceIp, setDeviceIp]       = useState(() => localStorage.getItem("deviceIp") || "");
   const [calibStatus, setCalibStatus] = useState(null);
   const [calibrating, setCalibrating] = useState(false);
 
   const toggle = (k) => setNotif((p) => ({ ...p, [k]: !p[k] }));
-  const save = (e) => { e.preventDefault(); setSaved(true); setTimeout(() => setSaved(false), 2000); };
+
+  const save = async (e) => {
+    e.preventDefault();
+    await fetch(`${API}/device-config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tank_capacity_liters: Number(capacity) }),
+    }).catch(() => {});
+
+    saveAppSettings({
+      lowWaterThreshold: lowThresh,
+      phThreshold: { min: Number(phMin), max: Number(phMax) },
+      notifications: notif,
+    });
+
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
 
   const updateDeviceIp = (v) => {
     setDeviceIp(v);
     localStorage.setItem("deviceIp", v);
   };
 
-  const callDevice = async (path, body, successText) => {
+  const callDevice = async (path, successText) => {
     if (!deviceIp) {
       setCalibStatus({ type: "error", text: "Enter the device IP address first." });
       return;
@@ -37,23 +57,26 @@ export default function Settings({ onNavigate }) {
     setCalibrating(true);
     setCalibStatus({ type: "info", text: "Talking to device…" });
     try {
-      const res = await fetch(`http://${deviceIp}:81${path}`, {
-        method: "POST",
-        ...(body && { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
-      });
-      if (!res.ok) throw new Error(`Device responded with ${res.status}`);
+      const res = await fetch(`http://${deviceIp}:81${path}`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Device responded with ${res.status}`);
+      }
       setCalibStatus({ type: "success", text: successText(data) });
-    } catch {
-      setCalibStatus({ type: "error", text: `Could not reach the device at ${deviceIp}. Make sure it's on the same network.` });
+    } catch (err) {
+      setCalibStatus({
+        type: "error",
+        text: err.message?.includes("Failed to fetch")
+          ? `Could not reach the device at ${deviceIp}. Make sure it's on the same network.`
+          : err.message,
+      });
     } finally {
       setCalibrating(false);
     }
   };
 
-  const calibrateEmpty = () => callDevice("/calibrate-empty", null, (d) => `Empty calibrated at ${d.empty_distance_cm ?? "—"} cm`);
-  const calibrateFull  = () => callDevice("/calibrate-full", null, (d) => `Full calibrated at ${d.full_distance_cm ?? "—"} cm`);
-  const pushCapacity   = () => callDevice("/set-capacity", { capacity: Number(capacity) }, () => `Capacity set to ${capacity} L on device`);
+  const calibrateEmpty = () => callDevice("/calibrate-empty", (d) => `Empty calibrated at ${d.empty_distance_cm ?? "-"} cm`);
+  const calibrateFull  = () => callDevice("/calibrate-full", (d) => `Full calibrated at ${d.full_distance_cm ?? "-"} cm`);
 
   return (
     <>
@@ -73,6 +96,9 @@ export default function Settings({ onNavigate }) {
             <div className="field">
               <label>Tank Capacity (Liters)</label>
               <input type="number" value={capacity} onChange={(e) => setCapacity(Number(e.target.value))} />
+              <p className="helper-text" style={{ marginTop: 4 }}>
+                Sent to the cloud on save The device syncs this automatically, no direct connection needed.
+              </p>
             </div>
 
             <div className="field">
@@ -128,6 +154,9 @@ export default function Settings({ onNavigate }) {
                 type="text" placeholder="e.g. 192.168.1.42"
                 value={deviceIp} onChange={(e) => updateDeviceIp(e.target.value)}
               />
+              <p className="helper-text" style={{ marginTop: 4 }}>
+                Needed only for the two live calibration actions below - must be on the same Wi-Fi as the device.
+              </p>
             </div>
 
             <p className="helper-text">Step 1: Empty the tank completely, then calibrate.</p>
@@ -142,12 +171,6 @@ export default function Settings({ onNavigate }) {
               Calibrate Full
             </button>
 
-            <p className="helper-text">Push the tank capacity set above to the device.</p>
-            <button type="button" className="btn-secondary" onClick={pushCapacity} disabled={calibrating}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>sync</span>
-              Push Capacity to Device
-            </button>
-
             {calibStatus && (
               <div className={`status-banner ${calibStatus.type}`}>
                 <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
@@ -156,6 +179,11 @@ export default function Settings({ onNavigate }) {
                 <span>{calibStatus.text}</span>
               </div>
             )}
+
+            <p className="helper-text" style={{ fontStyle: "italic" }}>
+              The device will reject a calibration reading that falls within its ultrasonic sensor's
+              blind zone (below ~22cm) or beyond its maximum range (~400cm) - you'll see the reason here if that happens.
+            </p>
           </div>
         </section>
 
@@ -184,7 +212,7 @@ export default function Settings({ onNavigate }) {
           <span className="material-symbols-outlined" style={{ color: "var(--outline)" }}>info</span>
           <div>
             <div className="label-caps">App Status</div>
-            <div className="helper-text" style={{ marginTop: 4, fontStyle: "italic" }}>Data Source: Live ESP32 (falls back to sample data)</div>
+            <div className="helper-text" style={{ marginTop: 4, fontStyle: "italic" }}>Data Source: Live ESP32 (shows a connection error if unreachable)</div>
             <div className="helper-text">Version 1.0.0</div>
           </div>
         </div>

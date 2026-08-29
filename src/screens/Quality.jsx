@@ -1,14 +1,36 @@
 import { useLiveSensorData } from "../hooks/useLiveSensorData";
+import { useAppSettings } from "../hooks/useAppSettings";
 import LiveBadge from "../components/LiveBadge";
+import ErrorState, { LoadingState } from "../components/ErrorState";
+
+const TURBIDITY_LIMIT = 4;
 
 export default function Quality() {
-  const { data: d, isLive } = useLiveSensorData();
-  const phSafe = d.phValue >= 6.5 && d.phValue <= 8.5;
-  const turbSafe = d.turbidity <= 4;
+  const { data: d, isLive, error, loading } = useLiveSensorData();
+  const { phThreshold, notifications } = useAppSettings();
+
+  if (loading) return <LoadingState label="Connecting to device…" />;
+  if (!d) {
+    return (
+      <>
+        <div className="row">
+          <span className="label-caps">Water Quality</span>
+          <LiveBadge isLive={isLive} />
+        </div>
+        <ErrorState message={error} />
+      </>
+    );
+  }
+
+  const phSafe = d.phValue >= phThreshold.min && d.phValue <= phThreshold.max;
+  const turbSafe = d.turbidity <= TURBIDITY_LIMIT;
   const overallSafe = phSafe && turbSafe;
+  const showAlert = !overallSafe && notifications.poorWaterQuality;
 
   const phMarkerPct = Math.min(Math.max((d.phValue / 14) * 100, 0), 100);
   const turbFillPct = Math.min((d.turbidity / 10) * 100, 100);
+  const safeZoneLeft = Math.max((phThreshold.min / 14) * 100, 0);
+  const safeZoneWidth = Math.max(((phThreshold.max - phThreshold.min) / 14) * 100, 0);
 
   return (
     <>
@@ -17,7 +39,6 @@ export default function Quality() {
         <LiveBadge isLive={isLive} />
       </div>
 
-      {/* Status banner */}
       <section
         className="card"
         style={{
@@ -41,7 +62,6 @@ export default function Quality() {
         </p>
       </section>
 
-      {/* pH gauge */}
       <section className="card">
         <div className="row" style={{ marginBottom: "var(--space-md)" }}>
           <div>
@@ -53,17 +73,16 @@ export default function Quality() {
           <span className={`badge ${phSafe ? "badge-secondary" : "badge-error"}`}>{phSafe ? "Neutral" : "Abnormal"}</span>
         </div>
         <div className="gauge-track">
-          <div className="gauge-safe-zone" style={{ left: "46.4%", width: "14.3%" }} />
+          <div className="gauge-safe-zone" style={{ left: `${safeZoneLeft}%`, width: `${safeZoneWidth}%` }} />
           <div className="gauge-marker" style={{ left: `${phMarkerPct}%` }} />
         </div>
         <div className="gauge-labels helper-text">
           <span>0</span>
-          <span style={{ color: "var(--primary)", fontWeight: 700 }}>6.5 - 8.5 Safe</span>
+          <span style={{ color: "var(--primary)", fontWeight: 700 }}>{phThreshold.min} - {phThreshold.max} Safe</span>
           <span>14</span>
         </div>
       </section>
 
-      {/* Turbidity */}
       <section className="card">
         <div className="row" style={{ marginBottom: "var(--space-md)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)" }}>
@@ -78,7 +97,7 @@ export default function Quality() {
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="label-caps" style={{ color: "var(--primary)" }}>Limit &lt; 4.0</div>
+            <div className="label-caps" style={{ color: "var(--primary)" }}>Limit &lt; {TURBIDITY_LIMIT}.0</div>
             <div className="helper-text">{turbSafe ? "Optimal clarity" : "Cloudy"}</div>
           </div>
         </div>
@@ -87,12 +106,7 @@ export default function Quality() {
         </div>
       </section>
 
-      {overallSafe ? (
-        <div className="empty-state">
-          <span className="material-symbols-outlined" style={{ fontSize: 40, opacity: 0.4 }}>verified_user</span>
-          <p className="body-md" style={{ color: "var(--outline)" }}>No active quality alerts found.</p>
-        </div>
-      ) : (
+      {showAlert ? (
         <section className="alert-banner">
           <div className="icon-circle"><span className="material-symbols-outlined">warning</span></div>
           <div>
@@ -101,6 +115,15 @@ export default function Quality() {
             {!turbSafe && <div className="helper-text" style={{ color: "inherit", opacity: 0.9 }}>Turbidity too high ({d.turbidity} NTU)</div>}
           </div>
         </section>
+      ) : (
+        <div className="empty-state">
+          <span className="material-symbols-outlined" style={{ fontSize: 40, opacity: 0.4 }}>verified_user</span>
+          <p className="body-md" style={{ color: "var(--outline)" }}>
+            {overallSafe
+              ? "No active quality alerts found."
+              : "Poor water quality alerts are turned off in Settings."}
+          </p>
+        </div>
       )}
     </>
   );

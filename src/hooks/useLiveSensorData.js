@@ -1,25 +1,25 @@
 import { useEffect, useState } from "react";
 import { SENSOR_DATA, fetchLiveSensorData } from "../data/hardcoded";
 
-// Polls the ESP32 backend and merges live readings over the hardcoded
-// fallback, so every screen behaves exactly as it did with pure SENSOR_DATA
-// whenever the device is unreachable.
 export function useLiveSensorData() {
   const [liveData, setLiveData] = useState(null);
-  const [isLive, setIsLive] = useState(false);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     const poll = async () => {
-      const live = await fetchLiveSensorData();
+      const result = await fetchLiveSensorData();
       if (cancelled) return;
-      if (live) {
-        setLiveData(live);
-        setIsLive(true);
+      if (result.ok) {
+        setLiveData(result.data);
+        setError(null);
       } else {
-        setIsLive(false);
+        setLiveData(null);
+        setError(result.error);
       }
+      setLoading(false);
     };
 
     poll();
@@ -30,6 +30,6 @@ export function useLiveSensorData() {
     };
   }, []);
 
-  const data = { ...SENSOR_DATA, ...(liveData || {}) };
-  return { data, isLive, liveData };
+  const data = liveData ? { ...SENSOR_DATA, ...liveData } : null;
+  return { data, isLive: !!liveData, error, loading };
 }
