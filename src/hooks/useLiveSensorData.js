@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SENSOR_DATA, fetchLiveSensorData } from "../data/hardcoded";
 
 export function useLiveSensorData() {
@@ -30,6 +30,6 @@ export function useLiveSensorData() {
     };
   }, []);
 
-  const data = liveData ? { ...SENSOR_DATA, ...liveData } : null;
+  const data = useMemo(() => (liveData ? { ...SENSOR_DATA, ...liveData } : null), [liveData]);
   return { data, isLive: !!liveData, error, loading };
 }

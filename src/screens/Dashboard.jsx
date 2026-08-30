@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useLiveSensorData } from "../hooks/useLiveSensorData";
 import { useAppSettings } from "../hooks/useAppSettings";
+import { useAutoMode } from "../hooks/useAutoMode";
+import { API } from "../data/hardcoded";
 import LiveBadge from "../components/LiveBadge";
 import ErrorState, { LoadingState } from "../components/ErrorState";
 
@@ -9,13 +11,69 @@ const OVERFLOW_RISK_PCT = 95;
 export default function Dashboard() {
   const { data: d, isLive, error, loading } = useLiveSensorData();
   const { lowWaterThreshold, notifications } = useAppSettings();
+  const cloudAutoMode = useAutoMode();
 
   const [pump, setPump] = useState(false);
   const [auto, setAuto] = useState(false);
+  const [pumpBusy, setPumpBusy] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState(null);
 
   useEffect(() => {
-    if (d) { setPump(d.pumpStatus === "ON"); setAuto(d.pumpAutoMode); }
+    if (d) setPump(d.pumpStatus === "ON");
   }, [d]);
+
+  useEffect(() => {
+    if (cloudAutoMode !== null) setAuto(cloudAutoMode);
+  }, [cloudAutoMode]);
+
+  const togglePump = async (checked) => {
+    setPump(checked);
+    setPumpBusy(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`${API}/pump-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pump_on: checked }),
+      });
+      if (!res.ok) throw new Error();
+      setActionMsg({
+        type: "info",
+        text: "Command sent.",
+      });
+    } catch {
+      setActionMsg({ type: "error", text: "Could not reach the device. Check your connection." });
+      setPump(!checked);
+    } finally {
+      setPumpBusy(false);
+    }
+  };
+
+  const toggleAutoMode = async (checked) => {
+    setAuto(checked);
+    setAutoBusy(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`${API}/auto-mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auto_mode: checked }),
+      });
+      if (!res.ok) throw new Error();
+      setActionMsg({
+        type: "info",
+        text: checked
+          ? "Auto mode enabled - device will fill/stop automatically based on level."
+          : "Auto mode disabled - device will only respond to manual pump commands.",
+      });
+    } catch {
+      setActionMsg({ type: "error", text: "Could not reach the device. Check your connection." });
+      setAuto(!checked);
+    } finally {
+      setAutoBusy(false);
+    }
+  };
 
   if (loading) return <LoadingState label="Connecting to device…" />;
   if (!d) {
@@ -104,7 +162,7 @@ export default function Dashboard() {
             </div>
           </div>
           <label className="toggle">
-            <input type="checkbox" checked={pump} onChange={(e) => setPump(e.target.checked)} />
+            <input type="checkbox" checked={pump} disabled={pumpBusy} onChange={(e) => togglePump(e.target.checked)} />
             <span className="toggle-track" />
           </label>
         </div>
@@ -112,13 +170,28 @@ export default function Dashboard() {
         <div className="row" style={{ marginTop: "var(--space-md)", padding: "var(--space-md)", background: "var(--surface-container-low)", borderRadius: "var(--radius-lg)" }}>
           <div>
             <div className="body-md" style={{ fontWeight: 600 }}>Auto-Mode</div>
-            <div className="helper-text">Edge logic runs on ESP32</div>
+            <div className="helper-text">
+              {auto ? "Fills automatically when low, stops when full" : "Off - pump only responds to manual control"}
+            </div>
           </div>
           <label className="toggle sm">
-            <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
+            <input type="checkbox" checked={auto} disabled={autoBusy} onChange={(e) => toggleAutoMode(e.target.checked)} />
             <span className="toggle-track" />
           </label>
         </div>
+
+        {actionMsg && (
+          <div className={`status-banner ${actionMsg.type}`} style={{ marginTop: "var(--space-md)" }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+              {actionMsg.type === "error" ? "error" : "info"}
+            </span>
+            <span>{actionMsg.text}</span>
+          </div>
+        )}
+
+        <p className="helper-text" style={{ marginTop: "var(--space-md)", fontStyle: "italic" }}>
+          An unsafe water-quality reading or an active dry-run fault always overrides manual control - this cannot be disabled, in either mode.
+        </p>
       </section>
 
       <section className="card">

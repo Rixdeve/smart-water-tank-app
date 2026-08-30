@@ -127,14 +127,6 @@ export default function Prediction() {
         </section>
       )}
 
-      <div className="info-box">
-        <span className="material-symbols-outlined" style={{ color: "var(--outline)" }}>settings_input_component</span>
-        <div>
-          <div className="label-caps">Model Information</div>
-          <div className="helper-text" style={{ marginTop: 4 }}>Polynomial Regression · Degree 2</div>
-          <div className="helper-text">Trained on 100 daily records · Target: Total Liters</div>
-        </div>
-      </div>
     </>
   );
 }
